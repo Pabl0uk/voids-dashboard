@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -41,9 +39,9 @@ export default function SubmissionsPage() {
         {submissions.map(sub => {
           let submittedDate = 'Invalid Date';
           try {
-            submittedDate = sub.timestamp?.toDate
-              ? sub.timestamp.toDate().toLocaleString()
-              : new Date(sub.timestamp).toLocaleString();
+            submittedDate = sub.submittedAt
+              ? new Date(sub.submittedAt).toLocaleString()
+              : 'Invalid Date';
           } catch (e) {
             submittedDate = 'Invalid Date';
           }
@@ -52,7 +50,7 @@ export default function SubmissionsPage() {
             <li key={sub.id} className="border p-4 rounded shadow">
               <p><strong>Surveyor:</strong> {sub.surveyorName || 'N/A'}</p>
               <p><strong>Property:</strong> {sub.propertyAddress || 'N/A'}</p>
-              <p><strong>Total Cost:</strong> £{Number(sub.totalCost || 0).toFixed(2)}</p>
+              <p><strong>Total Cost:</strong> £{Number(sub.totals?.cost || 0).toFixed(2)}</p>
               <p><strong>Submitted:</strong> {submittedDate}</p>
             </li>
           );
