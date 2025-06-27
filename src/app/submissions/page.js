@@ -35,6 +35,43 @@ export default function SubmissionsPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">SOR Submissions</h1>
+      <div className="overflow-x-auto mb-8">
+        <h2 className="text-xl font-semibold mb-4">Surveyor Summary</h2>
+        <table className="min-w-full bg-white border border-gray-200 rounded shadow-sm text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="py-2 px-3 text-left">Surveyor</th>
+              <th className="py-2 px-3 text-left">Submissions</th>
+              <th className="py-2 px-3 text-left">Avg Cost</th>
+              <th className="py-2 px-3 text-left">Recharge Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(
+              submissions.reduce((acc, sub) => {
+                const name = sub.surveyorName || 'Unknown';
+                if (!acc[name]) {
+                  acc[name] = { count: 0, total: 0, rechargeCount: 0 };
+                }
+                acc[name].count += 1;
+                acc[name].total += parseFloat(sub.totals?.cost || 0);
+                const rechargeFound = Object.values(sub.sors || {}).some(section =>
+                  (section || []).some(item => item.recharge)
+                );
+                if (rechargeFound) acc[name].rechargeCount += 1;
+                return acc;
+              }, {})
+            ).map(([name, data]) => (
+              <tr key={name} className="border-t">
+                <td className="py-2 px-3 font-medium">{name}</td>
+                <td className="py-2 px-3">{data.count}</td>
+                <td className="py-2 px-3">£{(data.total / data.count).toFixed(2)}</td>
+                <td className="py-2 px-3">{data.rechargeCount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <ul className="space-y-4">
         {submissions.map(sub => {
           let submittedDate = 'Invalid Date';
