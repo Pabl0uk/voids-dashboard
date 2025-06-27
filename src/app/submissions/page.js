@@ -38,16 +38,16 @@ export default function SubmissionsPage() {
       <h1 className="text-2xl font-bold mb-6">SOR Submissions</h1>
       <div className="overflow-x-auto mb-8">
         <h2 className="text-xl font-semibold mb-4">Surveyor Summary</h2>
-        <table className="min-w-full bg-white border border-gray-200 rounded shadow-sm text-sm">
-          <thead className="bg-gray-100">
+        <table className="min-w-full border border-gray-300 text-sm rounded overflow-hidden">
+          <thead className="bg-gray-200 text-gray-700 font-semibold">
             <tr>
-              <th className="py-2 px-3 text-left">Surveyor</th>
-              <th className="py-2 px-3 text-left">Submissions</th>
-              <th className="py-2 px-3 text-left">Avg Cost</th>
-              <th className="py-2 px-3 text-left">Recharge Count</th>
+              <th className="py-2 px-4 text-left">Surveyor</th>
+              <th className="py-2 px-4 text-right">Submissions</th>
+              <th className="py-2 px-4 text-right">Avg Cost</th>
+              <th className="py-2 px-4 text-right">Recharge Count</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-gray-200 bg-white">
             {Object.entries(
               submissions.reduce((acc, sub) => {
                 const name = sub.surveyorName || 'Unknown';
@@ -63,11 +63,11 @@ export default function SubmissionsPage() {
                 return acc;
               }, {})
             ).map(([name, data]) => (
-              <tr key={name} className="border-t">
-                <td className="py-2 px-3 font-medium">{name}</td>
-                <td className="py-2 px-3">{data.count}</td>
-                <td className="py-2 px-3">£{(data.total / data.count).toFixed(2)}</td>
-                <td className="py-2 px-3">{data.rechargeCount}</td>
+              <tr key={name}>
+                <td className="py-2 px-4 font-medium">{name}</td>
+                <td className="py-2 px-4 text-right">{data.count}</td>
+                <td className="py-2 px-4 text-right">£{(data.total / data.count).toFixed(2)}</td>
+                <td className="py-2 px-4 text-right">{data.rechargeCount}</td>
               </tr>
             ))}
           </tbody>
