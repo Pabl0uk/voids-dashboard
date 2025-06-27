@@ -8,6 +8,7 @@ import { db } from '../lib/firebase';
 export default function SubmissionsPage() {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterText, setFilterText] = useState("");
 
   useEffect(() => {
     async function fetchSubmissions() {
@@ -38,6 +39,18 @@ export default function SubmissionsPage() {
       <h1 className="text-2xl font-bold mb-6">SOR Submissions</h1>
       <div className="overflow-x-auto mb-8">
         <h2 className="text-xl font-semibold mb-4">Surveyor Summary</h2>
+        <Form className="mb-4">
+          <Form.Group controlId="filterSurveyor">
+            <Form.Label className="text-sm font-medium text-gray-700">Filter by Surveyor Name</Form.Label>
+            <Form.Control
+              type="text"
+              placeholder="Type a surveyor name..."
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              className="mt-1 block w-full max-w-sm"
+            />
+          </Form.Group>
+        </Form>
         <table className="min-w-full border border-gray-300 text-sm rounded overflow-hidden">
           <thead className="bg-gray-200 text-gray-700 font-semibold">
             <tr>
@@ -62,14 +75,16 @@ export default function SubmissionsPage() {
                 if (rechargeFound) acc[name].rechargeCount += 1;
                 return acc;
               }, {})
-            ).map(([name, data]) => (
-              <tr key={name}>
-                <td className="py-2 px-4 font-medium">{name}</td>
-                <td className="py-2 px-4 text-right">{data.count}</td>
-                <td className="py-2 px-4 text-right">£{(data.total / data.count).toFixed(2)}</td>
-                <td className="py-2 px-4 text-right">{data.rechargeCount}</td>
-              </tr>
-            ))}
+            )
+              .filter(([name]) => name.toLowerCase().includes(filterText.toLowerCase()))
+              .map(([name, data]) => (
+                <tr key={name}>
+                  <td className="py-2 px-4 font-medium">{name}</td>
+                  <td className="py-2 px-4 text-right">{data.count}</td>
+                  <td className="py-2 px-4 text-right">£{(data.total / data.count).toFixed(2)}</td>
+                  <td className="py-2 px-4 text-right">{data.rechargeCount}</td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -85,11 +100,11 @@ export default function SubmissionsPage() {
           }
 
           return (
-            <li key={sub.id} className="border p-4 rounded shadow">
-              <p><strong>Surveyor:</strong> {sub.surveyorName || 'N/A'}</p>
-              <p><strong>Property:</strong> {sub.propertyAddress || 'N/A'}</p>
-              <p><strong>Total Cost:</strong> £{sub.totals?.cost ? Number(sub.totals.cost).toFixed(2) : 'N/A'}</p>
-              <p><strong>Submitted:</strong> {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : 'N/A'}</p>
+            <li key={sub.id} className="bg-white text-gray-900 border border-gray-300 p-4 rounded shadow-sm hover:shadow-md transition-shadow duration-200">
+              <p className="mb-1"><strong>Surveyor:</strong> {sub.surveyorName || 'N/A'}</p>
+              <p className="mb-1"><strong>Property:</strong> {sub.propertyAddress || 'N/A'}</p>
+              <p className="mb-1"><strong>Total Cost:</strong> £{sub.totals?.cost ? Number(sub.totals.cost).toFixed(2) : 'N/A'}</p>
+              <p className="mb-1"><strong>Submitted:</strong> {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : 'N/A'}</p>
             </li>
           );
         })}
