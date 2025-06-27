@@ -50,8 +50,8 @@ export default function SubmissionsPage() {
             <li key={sub.id} className="border p-4 rounded shadow">
               <p><strong>Surveyor:</strong> {sub.surveyorName || 'N/A'}</p>
               <p><strong>Property:</strong> {sub.propertyAddress || 'N/A'}</p>
-              <p><strong>Total Cost:</strong> £{Number(sub.totals?.cost || 0).toFixed(2)}</p>
-              <p><strong>Submitted:</strong> {submittedDate}</p>
+              <p><strong>Total Cost:</strong> £{sub.totals?.cost ? Number(sub.totals.cost).toFixed(2) : 'N/A'}</p>
+              <p><strong>Submitted:</strong> {sub.submittedAt ? new Date(sub.submittedAt).toLocaleString() : 'N/A'}</p>
             </li>
           );
         })}
