@@ -1,4 +1,6 @@
-// Temporary change to trigger Vercel redeploy
+'use client';
+
+// Redeploy trigger comment
 'use client';
 
 import { useEffect, useState } from 'react';
