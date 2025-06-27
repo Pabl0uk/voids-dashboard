@@ -38,7 +38,7 @@ export default function SubmissionsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">SOR Submissions</h1>
+      <h1 className="text-2xl font-bold mb-6">SOR Submissions 🔄</h1>
       <div className="overflow-x-auto mb-8">
         <h2 className="text-xl font-semibold mb-4">Surveyor Summary</h2>
         <Form className="mb-4">
