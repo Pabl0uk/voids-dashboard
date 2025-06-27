@@ -4,7 +4,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Form } from 'react-bootstrap';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -42,18 +41,19 @@ export default function SubmissionsPage() {
       <h1 className="text-2xl font-bold mb-6">SOR Submissions 🔄</h1>
       <div className="overflow-x-auto mb-8">
         <h2 className="text-xl font-semibold mb-4">Surveyor Summary</h2>
-        <Form className="mb-4">
-          <Form.Group controlId="filterSurveyor">
-            <Form.Label className="text-sm font-medium text-gray-700">Filter by Surveyor Name</Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Type a surveyor name..."
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-              className="mt-1 block w-full max-w-sm"
-            />
-          </Form.Group>
-        </Form>
+        <form className="mb-4">
+          <label htmlFor="filterSurveyor" className="text-sm font-medium text-gray-700">
+            Filter by Surveyor Name
+          </label>
+          <input
+            id="filterSurveyor"
+            type="text"
+            placeholder="Type a surveyor name..."
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            className="mt-1 block w-full max-w-sm border border-gray-300 px-2 py-1 rounded"
+          />
+        </form>
         <table className="min-w-full border border-gray-300 text-sm rounded overflow-hidden">
           <thead className="bg-gray-200 text-gray-700 font-semibold">
             <tr>
