@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useEffect, useRef } from "react";
@@ -10,7 +8,7 @@ import { db } from "../../lib/firebase";
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 export default function DemandMapPage() {
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapContainerRef = useRef(null);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -26,7 +24,7 @@ export default function DemandMapPage() {
     map.on("load", async () => {
       try {
         const snapshot = await getDocs(collection(db, "historicDemand"));
-        const features: any[] = [];
+        const features = [];
 
         snapshot.forEach((doc) => {
           const data = doc.data();
@@ -70,7 +68,7 @@ export default function DemandMapPage() {
           },
         });
 
-        map.on("click", "demand-points", (e: any) => {
+        map.on("click", "demand-points", (e) => {
           const props = e.features?.[0]?.properties;
           if (!props) return;
 
