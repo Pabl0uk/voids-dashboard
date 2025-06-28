@@ -294,7 +294,7 @@ const GiftingDashboard = () => {
                 marginBottom: '1rem',
                 color: '#075985'
               }}>
-                <strong>Note:</strong> The "Other" category includes anything outside the predefined keywords. Keyword groups may be configurable in future updates.
+                <strong>Note:</strong> The {'"Other"'} category includes anything outside the predefined keywords. Keyword groups may be configurable in future updates.
               </div>
 
               <h2>Gifted Item Notes</h2>
