@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Voids Dashboard",
+  title: "EH Hub",
   description: "Bromford Voids Management Dashboard",
 };
 

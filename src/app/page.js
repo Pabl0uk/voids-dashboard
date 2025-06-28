@@ -35,17 +35,21 @@ export default function Home() {
               <h3 className="text-lg font-semibold mb-1 text-blue-700 group-hover:text-blue-800">📈 Exec Overview</h3>
               <p className="text-gray-600">High-level performance, cost trends, and impact visualisations.</p>
             </a>
-            <a href="/recharges" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
-              <h3 className="text-lg font-semibold mb-1 text-indigo-700 group-hover:text-indigo-800">📝 Recharges & Quoted Work</h3>
-              <p className="text-gray-600">Review tenant damage, additional costs, and contractor input.</p>
-            </a>
             <a href="/upload" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
               <h3 className="text-lg font-semibold mb-1 text-cyan-700 group-hover:text-cyan-800">🔄 Upload Historical Data</h3>
               <p className="text-gray-600">Import CSVs to support trend and demand planning.</p>
             </a>
-            <a href="/admin" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
-              <h3 className="text-lg font-semibold mb-1 text-gray-700 group-hover:text-gray-800">🔐 Admin / Setup</h3>
-              <p className="text-gray-600">Control configuration, data sources and integrations.</p>
+            <a href="/gifting" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
+              <h3 className="text-lg font-semibold mb-1 text-rose-700 group-hover:text-rose-800">🎁 Gifting Dashboard</h3>
+              <p className="text-gray-600">See what’s commonly gifted (like carpets, curtains) and where it’s happening.</p>
+            </a>
+            <a href="/recharges" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
+              <h3 className="text-lg font-semibold mb-1 text-yellow-700 group-hover:text-yellow-800">💰 Recharge Dashboard</h3>
+              <p className="text-gray-600">Track voids with tenant damage, most common recharge types and cost/time impact.</p>
+            </a>
+            <a href="/contractor" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
+              <h3 className="text-lg font-semibold mb-1 text-orange-700 group-hover:text-orange-800">👷 Contractor Work</h3>
+              <p className="text-gray-600">Breakdown of referrals for quoted works and associated time/cost.</p>
             </a>
           </div>
         </section>
