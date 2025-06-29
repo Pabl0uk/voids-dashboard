@@ -3,6 +3,11 @@
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useEffect, useRef, useState } from "react";
+// Helper for consistent month-year labels
+const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function formatMonthYear(date) {
+  return `${monthsShort[date.getMonth()]} ${String(date.getFullYear()).slice(-2)}`;
+}
 import {
   BarChart,
   Bar,
@@ -84,111 +89,188 @@ export default function DemandMapPage() {
     return () => { ignore = true; };
   }, []);
 
-  // Initialize the map ONCE
+  // Initialize the map and handle style changes
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    if (mapRef.current) return;
 
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: mapStyle,
-      center: [-1.9, 52.5],
-      zoom: 7,
-    });
-    mapRef.current = map;
-    window.mapRef = map;
-
-    map.addControl(new mapboxgl.NavigationControl());
-
-    // Add custom pitch control
-    class PitchControl {
-      onAdd(map) {
-        this._map = map;
-        this._container = document.createElement('div');
-        this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
-
-        const button = document.createElement('button');
-        button.innerHTML = "🛰️";
-        button.title = "Toggle 3D angle";
-        button.onclick = () => {
-          const currentPitch = map.getPitch();
-          map.easeTo({ pitch: currentPitch === 0 ? 60 : 0, duration: 1000 });
-        };
-
-        this._container.appendChild(button);
-        return this._container;
-      }
-
-      onRemove() {
-        this._container.parentNode.removeChild(this._container);
-        this._map = undefined;
+    // Helper to add demand layers
+    function addDemandLayers() {
+      if (!demandDataRef.current) return;
+      const getColorForLocality = (locality) => {
+        switch (locality) {
+          case "WOE": return "#1d4ed8";
+          case "Glouc": return "#16a34a";
+          case "S&M": return "#f59e0b";
+          case "Central": return "#dc2626";
+          default: return "#6b7280";
+        }
+      };
+      const geojson = {
+        type: "FeatureCollection",
+        features: demandDataRef.current.map((data) => {
+          const lat = parseFloat(data["Latitude"]);
+          const lng = parseFloat(data["Longitude"]);
+          if (isNaN(lat) || isNaN(lng)) return null;
+          const locality = data["Locality"] || data["locality"] || "Unknown";
+          return {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [lng, lat] },
+            properties: {
+              color: getColorForLocality(locality),
+              address: data["Address of property"] || "",
+              postcode: data["Postcode"] || "",
+              letType: data["Let Type"] || "Unknown",
+              localAuth: data["Local Authority"] || "Unknown",
+              voidType: data["Major or Minor void?"] || "Unknown",
+              locality,
+              tenancyEndDate: data["Tenancy end date"] || "Unknown",
+            }
+          };
+        }).filter(Boolean),
+      };
+      if (mapRef.current.getSource("historicDemand")) {
+        mapRef.current.getSource("historicDemand").setData(geojson);
+      } else {
+        mapRef.current.addSource("historicDemand", {
+          type: "geojson",
+          data: geojson,
+        });
+        mapRef.current.addLayer({
+          id: "demand-points",
+          type: "circle",
+          source: "historicDemand",
+          paint: {
+            "circle-radius": 5,
+            "circle-color": ["get", "color"],
+            "circle-opacity": 0.7,
+          },
+        });
       }
     }
-    map.addControl(new PitchControl(), "top-right");
 
-    map.setPitch(0); // flat overhead
-    map.setBearing(0); // north-up
-
-    map.on("style.load", () => {
-      map.addSource('mapbox-dem', {
-        type: 'raster-dem',
-        url: 'mapbox://mapbox.terrain-rgb',
-        tileSize: 512,
-        maxzoom: 14
+    if (mapRef.current) {
+      // Change style if map already exists
+      mapRef.current.setStyle(mapStyle);
+    } else {
+      // Create map instance
+      const map = new mapboxgl.Map({
+        container: mapContainerRef.current,
+        style: mapStyle,
+        center: [-1.9, 52.5],
+        zoom: 7,
       });
+      mapRef.current = map;
+      window.mapRef = map;
 
-      map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+      map.addControl(new mapboxgl.NavigationControl());
 
-      // Add 3D buildings layer
-      map.addLayer({
-        id: '3d-buildings',
-        source: 'composite',
-        'source-layer': 'building',
-        filter: ['==', 'extrude', 'true'],
-        type: 'fill-extrusion',
-        minzoom: 15,
-        paint: {
-          'fill-extrusion-color': '#aaa',
-          'fill-extrusion-height': [
-            "interpolate", ["linear"], ["zoom"],
-            15, 0,
-            15.05, ["get", "height"]
-          ],
-          'fill-extrusion-base': [
-            "interpolate", ["linear"], ["zoom"],
-            15, 0,
-            15.05, ["get", "min_height"]
-          ],
-          'fill-extrusion-opacity': 0.6
+      // Add custom pitch control
+      class PitchControl {
+        onAdd(map) {
+          this._map = map;
+          this._container = document.createElement('div');
+          this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+
+          const button = document.createElement('button');
+          button.innerHTML = "🛰️";
+          button.title = "Toggle 3D angle";
+          button.onclick = () => {
+            const currentPitch = map.getPitch();
+            map.easeTo({ pitch: currentPitch === 0 ? 60 : 0, duration: 1000 });
+          };
+
+          this._container.appendChild(button);
+          return this._container;
         }
+
+        onRemove() {
+          this._container.parentNode.removeChild(this._container);
+          this._map = undefined;
+        }
+      }
+      map.addControl(new PitchControl(), "top-right");
+
+      map.setPitch(0); // flat overhead
+      map.setBearing(0); // north-up
+
+      // Add click handler for popups
+      map.on("click", "demand-points", (e) => {
+        const props = e.features?.[0]?.properties;
+        if (!props) return;
+        new mapboxgl.Popup()
+          .setLngLat(e.lngLat)
+          .setHTML(`
+            <div style="font-size: 14px; color: #111;">
+              <strong style="font-size: 15px;">${props.address}</strong><br/>
+              <span>Postcode: ${props.postcode}</span><br/>
+              <span>Let Type: ${props.letType}</span><br/>
+              <span>Local Authority: ${props.localAuth}</span><br/>
+              <span>Void Type: ${props.voidType}</span><br/>
+              <span>Locality: ${props.locality}</span><br/>
+              <span>Est. Tenancy End: ${props.tenancyEndDate || "Unknown"}</span><br/>
+            </div>
+          `)
+          .addTo(map);
       });
-    });
+    }
 
-    // Add click handler for popups
-    map.on("click", "demand-points", (e) => {
-      const props = e.features?.[0]?.properties;
-      if (!props) return;
-      new mapboxgl.Popup()
-        .setLngLat(e.lngLat)
-        .setHTML(`
-          <div style="font-size: 14px; color: #111;">
-            <strong style="font-size: 15px;">${props.address}</strong><br/>
-            <span>Postcode: ${props.postcode}</span><br/>
-            <span>Let Type: ${props.letType}</span><br/>
-            <span>Local Authority: ${props.localAuth}</span><br/>
-            <span>Void Type: ${props.voidType}</span><br/>
-            <span>Locality: ${props.locality}</span><br/>
-            <span>Est. Tenancy End: ${props.tenancyEndDate || "Unknown"}</span><br/>
-          </div>
-        `)
-        .addTo(map);
-    });
+    // Listen for style.load on every style change
+    const map = mapRef.current;
+    if (!map) return;
+    function handleStyleLoad() {
+      // Add DEM and 3D buildings
+      if (!map.getSource('mapbox-dem')) {
+        map.addSource('mapbox-dem', {
+          type: 'raster-dem',
+          url: 'mapbox://mapbox.terrain-rgb',
+          tileSize: 512,
+          maxzoom: 14
+        });
+      }
+      if (!map.getTerrain()) {
+        map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+      }
+      // Add 3D buildings if not already present
+      if (!map.getLayer('3d-buildings')) {
+        map.addLayer({
+          id: '3d-buildings',
+          source: 'composite',
+          'source-layer': 'building',
+          filter: ['==', 'extrude', 'true'],
+          type: 'fill-extrusion',
+          minzoom: 15,
+          paint: {
+            'fill-extrusion-color': '#aaa',
+            'fill-extrusion-height': [
+              "interpolate", ["linear"], ["zoom"],
+              15, 0,
+              15.05, ["get", "height"]
+            ],
+            'fill-extrusion-base': [
+              "interpolate", ["linear"], ["zoom"],
+              15, 0,
+              15.05, ["get", "min_height"]
+            ],
+            'fill-extrusion-opacity': 0.6
+          }
+        });
+      }
+      // Add demand data layers
+      addDemandLayers();
+    }
+    map.on("style.load", handleStyleLoad);
 
+    // Call addDemandLayers if style is already loaded (e.g., on first mount)
+    if (map.isStyleLoaded && map.isStyleLoaded()) {
+      handleStyleLoad();
+    }
+
+    // Cleanup: remove style.load listener only
     return () => {
-      map.remove();
-      mapRef.current = null;
+      map.off("style.load", handleStyleLoad);
+      // Do not remove map instance unless component unmounts
     };
-  }, [mapStyle, mapContainerRef]);
+  }, [mapStyle]);
 
   // Update map data and stats whenever filters change or data loads
   useEffect(() => {
@@ -514,7 +596,7 @@ export default function DemandMapPage() {
                     const d = new Date(2024, 2 + i); // March 2024 to March 2025
                     return (
                       <th key={i} className="p-2 border">
-                        {d.toLocaleString("default", { month: "short", year: "2-digit" })}
+                        {formatMonthYear(d)}
                       </th>
                     );
                   })}
