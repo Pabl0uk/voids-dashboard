@@ -17,7 +17,7 @@ import mapboxgl from "mapbox-gl";
 import { collection, getDocs, query, limit } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
 export default function DemandMapPage() {
   // Transform demand data into array for scatter chart per month/locality or voidType
@@ -505,102 +505,116 @@ export default function DemandMapPage() {
 
         <div className="bg-white mt-8 p-4 rounded shadow text-sm">
           <h2 className="text-lg font-semibold mb-2">📊 Demand Summary (Mar 2024 – Mar 2025)</h2>
-          <table className="table-auto w-full text-left text-xs border">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="p-2 border">Locality</th>
-                {Array.from({ length: 13 }).map((_, i) => {
-                  const d = new Date(2024, 2 + i); // March 2024 to March 2025
+          <div className="overflow-x-auto">
+            <table className="table-auto w-full text-left text-xs border border-collapse rounded-lg overflow-hidden shadow">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="p-2 border">Locality</th>
+                  {Array.from({ length: 13 }).map((_, i) => {
+                    const d = new Date(2024, 2 + i); // March 2024 to March 2025
+                    return (
+                      <th key={i} className="p-2 border">
+                        {d.toLocaleString("default", { month: "short", year: "2-digit" })}
+                      </th>
+                    );
+                  })}
+                  {/* Total column header */}
+                  <th className="p-2 border font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {["WOE", "Glouc", "S&M", "Central"].map(locality => {
+                  // Calculate per-month counts for the locality
+                  const monthCounts = Array.from({ length: 13 }).map((_, i) => {
+                    const d = new Date(2024, 2 + i);
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                    const count = demandDataRef.current?.filter(data => {
+                      const l = data["Locality"] || data["locality"];
+                      const letType = data["Let Type"] || "";
+                      const voidType = data["Major or Minor void?"] || "";
+                      const date = new Date(data["Tenancy end date"]);
+                      const ym = !isNaN(date) ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
+                      return (
+                        l === locality &&
+                        ym === key &&
+                        letType === "Relet" &&
+                        voidType.toLowerCase() !== "n/a"
+                      );
+                    }).length || 0;
+                    return count;
+                  });
+                  // Calculate total for this locality
+                  const totalForLocality = monthCounts.reduce((a, b) => a + b, 0);
                   return (
-                    <th key={i} className="p-2 border">
-                      {d.toLocaleString("default", { month: "short", year: "2-digit" })}
-                    </th>
+                    <tr key={locality} className="hover:bg-gray-50 transition-colors">
+                      <td className="p-2 border font-semibold sticky left-0 bg-white z-10">{locality}</td>
+                      {monthCounts.map((count, idx) => (
+                        <td
+                          key={idx}
+                          className="p-2 border text-center relative group"
+                        >
+                          {count}
+                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white rounded text-xs opacity-0 group-hover:opacity-100 pointer-events-none z-20 transition-opacity duration-200">
+                            {`${locality} – ${new Date(2024, 2 + idx).toLocaleString("default", { month: "long", year: "numeric" })}: ${count}`}
+                          </span>
+                        </td>
+                      ))}
+                      {/* Total column per locality */}
+                      <td className="p-2 border text-center font-semibold bg-gray-50">{totalForLocality}</td>
+                    </tr>
                   );
                 })}
-                {/* Total column header */}
-                <th className="p-2 border font-semibold">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {["WOE", "Glouc", "S&M", "Central"].map(locality => {
-                // Calculate per-month counts for the locality
-                const monthCounts = Array.from({ length: 13 }).map((_, i) => {
-                  const d = new Date(2024, 2 + i);
-                  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-                  const count = demandDataRef.current?.filter(data => {
-                    const l = data["Locality"] || data["locality"];
-                    const letType = data["Let Type"] || "";
-                    const voidType = data["Major or Minor void?"] || "";
-                    const date = new Date(data["Tenancy end date"]);
-                    const ym = !isNaN(date) ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
+                <tr className="font-bold bg-gray-50">
+                  <td className="p-2 border sticky left-0 bg-gray-50 z-10">Total</td>
+                  {Array.from({ length: 13 }).map((_, i) => {
+                    const d = new Date(2024, 2 + i);
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                    const count = demandDataRef.current?.filter(data => {
+                      const letType = data["Let Type"] || "";
+                      const voidType = data["Major or Minor void?"] || "";
+                      const date = new Date(data["Tenancy end date"]);
+                      const ym = !isNaN(date) ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
+                      return (
+                        ym === key &&
+                        letType === "Relet" &&
+                        voidType.toLowerCase() !== "n/a"
+                      );
+                    }).length || 0;
                     return (
-                      l === locality &&
-                      ym === key &&
-                      letType === "Relet" &&
-                      voidType.toLowerCase() !== "n/a"
+                      <td key={key} className="p-2 border text-center font-semibold bg-gray-50">
+                        {count}
+                      </td>
                     );
-                  }).length || 0;
-                  return count;
-                });
-                // Calculate total for this locality
-                const totalForLocality = monthCounts.reduce((a, b) => a + b, 0);
-                return (
-                  <tr key={locality}>
-                    <td className="p-2 border font-semibold">{locality}</td>
-                    {monthCounts.map((count, idx) => (
-                      <td key={idx} className="p-2 border text-center">{count}</td>
-                    ))}
-                    {/* Total column per locality */}
-                    <td className="p-2 border text-center">{totalForLocality}</td>
-                  </tr>
-                );
-              })}
-              <tr className="font-bold bg-gray-50">
-                <td className="p-2 border">Total</td>
-                {Array.from({ length: 13 }).map((_, i) => {
-                  const d = new Date(2024, 2 + i);
-                  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-                  const count = demandDataRef.current?.filter(data => {
-                    const letType = data["Let Type"] || "";
-                    const voidType = data["Major or Minor void?"] || "";
-                    const date = new Date(data["Tenancy end date"]);
-                    const ym = !isNaN(date) ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
-                    return (
-                      ym === key &&
-                      letType === "Relet" &&
-                      voidType.toLowerCase() !== "n/a"
-                    );
-                  }).length || 0;
-                  return <td key={key} className="p-2 border text-center">{count}</td>;
-                })}
-                {/* Total of all months and localities */}
-                <td className="p-2 border text-center">
-                  {
-                    (() => {
-                      // Calculate the grand total
-                      const totals = Array.from({ length: 13 }).map((_, i) => {
-                        const d = new Date(2024, 2 + i);
-                        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-                        const count = demandDataRef.current?.filter(data => {
-                          const letType = data["Let Type"] || "";
-                          const voidType = data["Major or Minor void?"] || "";
-                          const date = new Date(data["Tenancy end date"]);
-                          const ym = !isNaN(date) ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
-                          return (
-                            ym === key &&
-                            letType === "Relet" &&
-                            voidType.toLowerCase() !== "n/a"
-                          );
-                        }).length || 0;
-                        return count;
-                      });
-                      return totals.reduce((a, b) => a + b, 0);
-                    })()
-                  }
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  })}
+                  {/* Total of all months and localities */}
+                  <td className="p-2 border text-center font-bold bg-yellow-100">
+                    {
+                      (() => {
+                        // Calculate the grand total
+                        const totals = Array.from({ length: 13 }).map((_, i) => {
+                          const d = new Date(2024, 2 + i);
+                          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                          const count = demandDataRef.current?.filter(data => {
+                            const letType = data["Let Type"] || "";
+                            const voidType = data["Major or Minor void?"] || "";
+                            const date = new Date(data["Tenancy end date"]);
+                            const ym = !isNaN(date) ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
+                            return (
+                              ym === key &&
+                              letType === "Relet" &&
+                              voidType.toLowerCase() !== "n/a"
+                            );
+                          }).length || 0;
+                          return count;
+                        });
+                        return totals.reduce((a, b) => a + b, 0);
+                      })()
+                    }
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="bg-white mt-8 p-4 rounded shadow text-sm">
