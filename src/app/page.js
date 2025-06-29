@@ -27,17 +27,13 @@ export default function Home() {
               <h3 className="text-lg font-semibold mb-1 text-green-700 group-hover:text-green-800">✅ View SOR Submissions</h3>
               <p className="text-gray-600">Browse survey entries, costs, SMVs, and recharge data.</p>
             </a>
-            <a href="/demand-map" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
+            <a href="/demand" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
               <h3 className="text-lg font-semibold mb-1 text-pink-700 group-hover:text-pink-800">📍 Demand Map</h3>
               <p className="text-gray-600">Interactive postcode-level map of voids and patch overlap.</p>
             </a>
             <a href="/exec-overview" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
               <h3 className="text-lg font-semibold mb-1 text-blue-700 group-hover:text-blue-800">📈 Exec Overview</h3>
               <p className="text-gray-600">High-level performance, cost trends, and impact visualisations.</p>
-            </a>
-            <a href="/upload" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
-              <h3 className="text-lg font-semibold mb-1 text-cyan-700 group-hover:text-cyan-800">🔄 Upload Historical Data</h3>
-              <p className="text-gray-600">Import CSVs to support trend and demand planning.</p>
             </a>
             <a href="/gifting" className="group block p-6 bg-white border border-gray-200 rounded-lg shadow hover:shadow-md hover:scale-[1.01] transition-all duration-200">
               <h3 className="text-lg font-semibold mb-1 text-rose-700 group-hover:text-rose-800">🎁 Gifting Dashboard</h3>
