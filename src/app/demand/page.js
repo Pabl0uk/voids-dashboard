@@ -3,6 +3,15 @@
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useEffect, useRef, useState } from "react";
+// Deterministically maps a string to a bright, high-contrast pastel color (for surveyor markers)
+function stringToColor(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = hash % 360;
+  return `hsl(${hue}, 90%, 65%)`; // bright pastel tones
+}
 // Helper for consistent month-year labels
 const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatMonthYear(date) {
@@ -19,7 +28,7 @@ import {
   ResponsiveContainer
 } from "recharts";
 import mapboxgl from "mapbox-gl";
-import { collection, getDocs, query, limit } from "firebase/firestore";
+import { collection, getDocs, query, limit, where, orderBy } from "firebase/firestore";
 import { db } from "../lib/firebase";
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
@@ -55,6 +64,226 @@ export default function DemandMapPage() {
     return { data, uniqueKeys };
   };
   const mapContainerRef = useRef(null);
+  // For live SOR submissions map
+  const liveMapContainerRef = useRef(null);
+  const liveMapRef = useRef(null);
+  const [liveMapStyle, setLiveMapStyle] = useState("mapbox://styles/mapbox/light-v10");
+  // Live SOR Submissions Map with filtering state
+  const [liveSORs, setLiveSORs] = useState([]);
+  const [filteredSORs, setFilteredSORs] = useState([]);
+  const [visitTypeFilter, setVisitTypeFilter] = useState("All");
+  const [voidTypeFilter, setVoidTypeFilter] = useState("All");
+  const [surveyorFilter, setSurveyorFilter] = useState("All");
+
+  // Date range filter state for Live SOR Submissions
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
+
+  // Fetch function for Live SOR Submissions, now depends on startDate/endDate
+  async function fetchLiveSORs() {
+    try {
+      // Fetch all docs (client-side filter by submittedAt string)
+      const snapshot = await getDocs(collection(db, "surveys"));
+
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+
+      const features = [];
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        const coords = data?.location;
+        const submitted = data?.submittedAt;
+
+        if (!coords || !submitted) return;
+
+        const submittedDate = new Date(submitted);
+        if (submittedDate < start || submittedDate > end) return;
+
+        const surveyor = data.surveyorName || "Unknown";
+        const color = stringToColor(surveyor);
+        const voidTime = data?.totals?.daysDecimal
+          ? Number(data.totals.daysDecimal).toFixed(1)
+          : "0.0";
+        const totalCost = data?.totals?.cost
+          ? Number(data.totals.cost).toFixed(2)
+          : "0.00";
+
+        features.push({
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [coords.longitude, coords.latitude],
+          },
+          properties: {
+            address: data.propertyAddress || "",
+            surveyor,
+            voidType: data.voidType || "Unknown",
+            letType: data.visitType || "Unknown",
+            color,
+            voidTime,
+            totalCost,
+          },
+        });
+      });
+
+      const geojson = {
+        type: "FeatureCollection",
+        features,
+      };
+
+      // If map and source exist, update data, else add source/layer
+      const map = liveMapRef.current;
+      if (map && map.getSource("liveDemand")) {
+        map.getSource("liveDemand").setData(geojson);
+      } else if (map) {
+        map.addSource("liveDemand", {
+          type: "geojson",
+          data: geojson,
+        });
+        map.addLayer({
+          id: "live-demand-points",
+          type: "circle",
+          source: "liveDemand",
+          paint: {
+            "circle-radius": 6,
+            "circle-color": ["get", "color"],
+            "circle-opacity": 0.6,
+          },
+        });
+        map.on("click", "live-demand-points", (e) => {
+          const props = e.features?.[0]?.properties;
+          if (!props) return;
+          new mapboxgl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(`
+              <div>
+                <strong>${props.address}</strong><br/>
+                Surveyor: ${props.surveyor}<br/>
+                Visit Type: ${props.letType}<br/>
+                Void Type: ${props.voidType}<br/>
+                Void Time: ${props.voidTime} days<br/>
+                Total Cost: £${Number(props.totalCost).toFixed(2)}
+              </div>
+            `)
+            .addTo(map);
+        });
+      }
+
+      setLiveSORs(features);
+      setFilteredSORs(features); // initial state matches full
+    } catch (err) {
+      console.error("Failed to fetch live SOR submissions:", err);
+    }
+  }
+
+  useEffect(() => {
+    if (!liveMapContainerRef.current) return;
+
+    const map = new mapboxgl.Map({
+      container: liveMapContainerRef.current,
+      style: liveMapStyle,
+      center: [-1.9, 52.5],
+      zoom: 7,
+    });
+    liveMapRef.current = map;
+
+    map.addControl(new mapboxgl.NavigationControl());
+
+    fetchLiveSORs();
+    // No cleanup needed as map instance is not reused
+    // eslint-disable-next-line
+  }, []);
+
+  // Split handling of liveMapStyle and data updates for reliability and scalability
+  // 1. Handle style changes and (re-)add source/layer/click handler
+  useEffect(() => {
+    const map = liveMapRef.current;
+    if (!map) return;
+
+    map.setStyle(liveMapStyle);
+
+    map.once("style.load", () => {
+      map.addSource("liveDemand", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: filteredSORs,
+        },
+      });
+
+      map.addLayer({
+        id: "live-demand-points",
+        type: "circle",
+        source: "liveDemand",
+        paint: {
+          "circle-radius": 6,
+          "circle-color": ["get", "color"],
+          "circle-opacity": 0.6,
+        },
+      });
+
+      map.on("click", "live-demand-points", (e) => {
+        const props = e.features?.[0]?.properties;
+        if (!props) return;
+        new mapboxgl.Popup()
+          .setLngLat(e.lngLat)
+          .setHTML(`
+            <div>
+              <strong>${props.address}</strong><br/>
+              Surveyor: ${props.surveyor}<br/>
+              Visit Type: ${props.letType}<br/>
+              Void Type: ${props.voidType}<br/>
+              Void Time: ${props.voidTime} days<br/>
+              Total Cost: £${Number(props.totalCost).toFixed(2)}
+            </div>
+          `)
+          .addTo(map);
+      });
+    });
+  }, [liveMapStyle]);
+
+  // 2. Update data for liveDemand source without re-adding source/layer
+  useEffect(() => {
+    const map = liveMapRef.current;
+    if (map?.getSource("liveDemand")) {
+      map.getSource("liveDemand").setData({
+        type: "FeatureCollection",
+        features: filteredSORs,
+      });
+    }
+  }, [filteredSORs]);
+
+  // Filtering for live SORs
+  useEffect(() => {
+    const filtered = liveSORs.filter((f) => {
+      const p = f.properties;
+      return (
+        (visitTypeFilter === "All" || p.letType === visitTypeFilter) &&
+        (voidTypeFilter === "All" || p.voidType === voidTypeFilter) &&
+        (
+          surveyorFilter === "All" ||
+          (p.surveyor?.trim().toLowerCase() === surveyorFilter.trim().toLowerCase())
+        )
+      );
+    });
+
+    const geojson = {
+      type: "FeatureCollection",
+      features: filtered,
+    };
+
+    const map = liveMapRef.current;
+    if (map && map.getSource("liveDemand")) {
+      map.getSource("liveDemand").setData(geojson);
+    }
+    setFilteredSORs(filtered);
+  }, [visitTypeFilter, voidTypeFilter, surveyorFilter, liveSORs]);
   const [selectedLetType, setSelectedLetType] = useState("All");
   const [selectedVoidType, setSelectedVoidType] = useState("All");
   const [selectedLocality, setSelectedLocality] = useState("All");
@@ -699,6 +928,7 @@ export default function DemandMapPage() {
           </div>
         </div>
 
+
         <div className="bg-white mt-8 p-4 rounded shadow text-sm">
           <h2 className="text-lg font-semibold mb-4">📊 Demand by Locality (Mar 2024 – Mar 2025)</h2>
           <ResponsiveContainer width="100%" height={400}>
@@ -727,6 +957,107 @@ export default function DemandMapPage() {
               ))}
             </BarChart>
           </ResponsiveContainer>
+        </div>
+
+        {/* Live SOR Submissions Map (moved below both graphs) */}
+        <div className="mt-12">
+          <h2 className="text-xl font-bold mb-2">🛰️ Live SOR Submissions Map</h2>
+          <p className="text-sm text-gray-600 mb-4">Showing most recent survey locations with GPS where available.</p>
+          {/* Date range and map style controls for live SOR submissions map */}
+          <div className="flex flex-wrap items-center gap-4 mb-4 text-sm">
+            <div>
+              <label className="mr-2 font-medium">Start Date:</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="border px-2 py-1 rounded"
+              />
+            </div>
+            <div>
+              <label className="mr-2 font-medium">End Date:</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="border px-2 py-1 rounded"
+              />
+            </div>
+            <button
+              onClick={fetchLiveSORs}
+              className="bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700"
+            >
+              Refresh Map
+            </button>
+            <div>
+              <label htmlFor="liveMapStyle" className="mr-2 font-medium">Map Style:</label>
+              <select
+                id="liveMapStyle"
+                onChange={(e) => setLiveMapStyle(e.target.value)}
+                className="border px-2 py-1 rounded"
+                value={liveMapStyle}
+              >
+                <option value="mapbox://styles/mapbox/streets-v11">Streets</option>
+                <option value="mapbox://styles/mapbox/outdoors-v11">Outdoors</option>
+                <option value="mapbox://styles/mapbox/light-v10">Light</option>
+                <option value="mapbox://styles/mapbox/satellite-streets-v12">Satellite</option>
+              </select>
+            </div>
+          </div>
+          <div
+            ref={liveMapContainerRef}
+            className="w-full h-[70vh] rounded-lg shadow"
+          />
+          {/* Filters for live SOR submissions */}
+          <div className="mt-4 flex flex-wrap gap-4 text-sm">
+            <div>
+              <label className="mr-2 font-medium">Visit Type:</label>
+              <select
+                value={visitTypeFilter}
+                onChange={(e) => setVisitTypeFilter(e.target.value)}
+                className="border px-2 py-1 rounded"
+              >
+                <option value="All">All</option>
+                {[...new Set(liveSORs.map(f => f.properties.letType))].filter(Boolean).map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mr-2 font-medium">Void Type:</label>
+              <select
+                value={voidTypeFilter}
+                onChange={(e) => setVoidTypeFilter(e.target.value)}
+                className="border px-2 py-1 rounded"
+              >
+                <option value="All">All</option>
+                {[...new Set(liveSORs.map(f => f.properties.voidType))].filter(Boolean).map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mr-2 font-medium">Surveyor:</label>
+              <select
+                value={surveyorFilter === "All" ? "All" : surveyorFilter.trim().toLowerCase()}
+                onChange={(e) => setSurveyorFilter(e.target.value)}
+                className="border px-2 py-1 rounded"
+              >
+                <option value="All">All</option>
+                {[...new Map(
+                  liveSORs
+                    .filter(f => f.properties.surveyor)
+                    .map(f => {
+                      const raw = f.properties.surveyor;
+                      const cleaned = raw.trim();
+                      return [cleaned.toLowerCase(), cleaned];
+                    })
+                ).values()].map(name => (
+                  <option key={name} value={name.trim().toLowerCase()}>{name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       </div>
     </main>
